@@ -19,11 +19,10 @@ def compute_gradient(y, tx, w):
             Parameters:
                     y (numpy.ndarray): An array with shape (n,1)
                     tx (numpy.ndarray): An array with shape (n,m)
-                    w (numpy.ndarray): An array with shape (k,1) describing the model
+                    w (numpy.ndarray): An array with shape (m,1) describing the model
             Returns:
-                    grad (numpy.ndarray): An array with shape (k,1), the gradient
+                    grad (numpy.ndarray): An array with shape (m,1), the gradient
     """
-    
     ew=y-tx.dot(w.T)
     grad= -(1/len(y))*(tx.T.dot(ew))
     return grad
@@ -33,9 +32,9 @@ def compute_stoch_gradient(y, tx, w):
             Parameters:
                     y (numpy.ndarray): An array with shape (n,1)
                     tx (numpy.ndarray): An array with shape (n,m)
-                    w (numpy.ndarray): An array with shape (k,1) describing the model
+                    w (numpy.ndarray): An array with shape (m,1) describing the model
             Returns:
-                    grad (numpy.ndarray): An array with shape (k,1), the gradiant
+                    grad (numpy.ndarray): An array with shape (m,1), the gradiant
     """
     ew=y-tx.dot(w.transpose())
     grad= -(1/len(y))*(np.T.dot(ew))
@@ -65,7 +64,7 @@ def batch_iter(y, tx, batch_size, num_batches=1, shuffle=True):
         end_index = min((batch_num + 1) * batch_size, data_size)
         if start_index != end_index:
             yield shuffled_y[start_index:end_index], shuffled_tx[start_index:end_index]
-            
+
 
 # least squares gradient descent
 def least_squares_GD(y, tx, initial_w, max_iters, gamma, log=False):
@@ -73,22 +72,24 @@ def least_squares_GD(y, tx, initial_w, max_iters, gamma, log=False):
             Parameters:
                     y (numpy.ndarray): An array with shape (n,1)
                     tx (numpy.ndarray): An array with shape (n,m)
-                    initial_w (numpy.ndarray): An array with shape (k,1) describing the model
+                    initial_w (numpy.ndarray): An array with shape (m,1) describing the model
                     max_iters (int) : number of iterations
                     gamma (numpy.float64): gradiant multiplier gamma > 0 
                     log (bool): if set to True display step by step informations about the descent
             Returns:
                     losses (numpy.ndarray): An array with shape (max_iter,1) containing the square loss of each iteration
-                    ws (numpy.ndarray): An array with shape (max_iter,k) containing the w for each iteration 
+                    ws (numpy.ndarray): An array with shape (max_iter,m) containing the w for each iteration 
     """
     # Define parameters to store w and loss
+    
     ws = [initial_w]
+
     losses = []
     w = initial_w
     for n_iter in range(max_iters): 
         # compute gradient, loss and next iter w
         grad=compute_gradient(y,tx,w)
-        loss=compute_MSE_loss(y,tx,w) 
+        loss=compute_MSE_loss(y,tx,w)
         w=(-gamma*grad).T+w
         # store w and loss
         ws.append(w)
@@ -105,7 +106,7 @@ def stochastic_gradient_descent(y, tx, initial_w, max_iters, gamma, batch_size=1
             Parameters:
                     y (numpy.ndarray): An array with shape (n,1)
                     tx (numpy.ndarray): An array with shape (n,m)
-                    initial_w (numpy.ndarray): An array with shape (k,1) describing the model
+                    initial_w (numpy.ndarray): An array with shape (m,1) describing the model
                     max_iters (int) : number of iterations
                     gamma (numpy.float64): gradiant multiplier gamma > 0 
                     log (bool): if set to True display step by step informations about the descent
@@ -113,7 +114,7 @@ def stochastic_gradient_descent(y, tx, initial_w, max_iters, gamma, batch_size=1
                     log (bool): if set to True display step by step informations about the descent
             Returns:
                     losses (numpy.ndarray): An array with shape (max_iter,1) containing the square loss of each iteration
-                    ws (numpy.ndarray): An array with shape (max_iter,k) containing the w for each iteration 
+                    ws (numpy.ndarray): An array with shape (max_iter,m) containing the w for each iteration 
     """
     iterator=batch_iter(y, tx, batch_size, num_batches=max_iters, shuffle=True)
     ws = [initial_w]
@@ -141,7 +142,7 @@ def least_squares(y, tx):
                     y (numpy.ndarray): An array with shape (n,1)
                     tx (numpy.ndarray): An array with shape (n,m)
             Returns:
-                    w* (numpy.ndarray): An array with shape (k,1) the optimal model of complexity k
+                    w* (numpy.ndarray): An array with shape (m,1) the optimal model of complexity k
     """
     w= lin.inv(tx.T.dot(tx)).dot(tx.T).dot(y)
     return ((1/(2*len(y)))* np.sum((y-tx.dot(w))**2),w)
@@ -154,7 +155,7 @@ def ridge_regression(y, tx, lambda_):
                     tx (numpy.ndarray): An array with shape (n,m)
                     lambda_ (numpy.float64): regularization factor lambda_>0
             Returns:
-                    w* (numpy.ndarray): An array with shape (k,1) the optimal model of complexity k
+                    w* (numpy.ndarray): An array with shape (m,1) the optimal model of complexity k
     """
     lambda_p=2*len(y)*lambda_
     w=lin.inv(tx.T.dot(tx)+lambda_p*np.identity(len(tx[0]))).dot(tx.T).dot(y)
