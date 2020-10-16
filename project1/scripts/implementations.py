@@ -122,11 +122,6 @@ def stochastic_gradient_descent(y, tx, initial_w, max_iters, gamma, batch_size=1
     w = initial_w
     for y,x in iterator:
         # compute gradient and loss
-        print(y.shape)
-        
-        print(x.shape)
-
-
         grad=compute_stoch_gradient(y,x,w)
         loss=compute_MSE_loss(y,x,w)
         # update w by gradient
