@@ -23,6 +23,7 @@ def compute_gradient(y, tx, w):
             Returns:
                     grad (numpy.ndarray): An array with shape (m,1), the gradient
     """
+
     ew=y-tx.dot(w.T)
     grad= -(1/len(y))*(tx.T.dot(ew))
     return grad
@@ -36,10 +37,9 @@ def compute_stoch_gradient(y, tx, w):
             Returns:
                     grad (numpy.ndarray): An array with shape (m,1), the gradiant
     """
-    ew=y-tx.dot(w.transpose())
-    grad= -(1/len(y))*(np.T.dot(ew))
+    ew=y-tx.dot(w.T)
+    grad= -(1/len(y))*(tx.T.dot(ew))
     return grad
-
 def batch_iter(y, tx, batch_size, num_batches=1, shuffle=True):
     """
     Generate a minibatch iterator for a dataset.
@@ -122,6 +122,11 @@ def stochastic_gradient_descent(y, tx, initial_w, max_iters, gamma, batch_size=1
     w = initial_w
     for y,x in iterator:
         # compute gradient and loss
+        print(y.shape)
+        
+        print(x.shape)
+
+
         grad=compute_stoch_gradient(y,x,w)
         loss=compute_MSE_loss(y,x,w)
         # update w by gradient
