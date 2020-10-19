@@ -3,7 +3,6 @@ import numpy.linalg as lin
 
 # Base Functions
 
-
 def compute_MSE_loss(y, tx, w):
     """Calculate the MSE loss.
         Parameters :
