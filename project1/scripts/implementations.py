@@ -62,12 +62,11 @@ def calculate_loss(y, tx, w):
                     w (numpy.ndarray): An array with shape (m,1) describing the model
             Returns:
                     sum (float) : the loss : negative log likelihood
-
     """
     sum = 0
     for i in range(len(y)):
         sum += np.log(1+np.exp(tx[i].T.dot(w)))
-        sum -= y[i].dot(tx[i].T.dot(w))
+        sum -= y[i]*(tx[i].T.dot(w))
     # sum=np.sum(np.log(1+np.exp(tx.T.dot(w))-y.dot(tx.T.dot(w))))
     return sum
 
@@ -81,7 +80,8 @@ def calculate_gradient(y, tx, w):
             Returns:
                     grad (numpy.ndarray): An array with shape (m,1), the gradient
     """
-    grad = tx.T.dot(sigmoid(tx.dot(w))-y)
+    inner = sigmoid(tx.dot(w))-y
+    grad=tx.T.dot(inner)
     return grad
 
 
@@ -96,7 +96,6 @@ def batch_iter(y, tx, batch_size, num_batches=1, shuffle=True):
         <DO-SOMETHING>
     """
     data_size = len(y)
-
     if shuffle:
         shuffle_indices = np.random.permutation(np.arange(data_size))
         shuffled_y = y[shuffle_indices]
@@ -133,8 +132,8 @@ def least_squares_GD(y, tx, initial_w, max_iters, gamma, log=False, store=False)
         ws = [initial_w]
         w = initial_w
     else:
-        ws = [np.array([[initial_w]]*tx.shape[1])]
-        w = ws[0]
+        w = np.array([initial_w]*tx.shape[1])
+        ws = [w]
     losses = []
     loss = 0
     for n_iter in range(max_iters):
@@ -142,6 +141,7 @@ def least_squares_GD(y, tx, initial_w, max_iters, gamma, log=False, store=False)
         grad = compute_gradient(y, tx, w)
         loss = compute_MSE_loss(y, tx, w)
         w = (-gamma*grad).T+w
+        
         # store w and loss
         if store:
             ws.append(w)
@@ -178,8 +178,8 @@ def stochastic_gradient_descent(y, tx, initial_w, max_iters, gamma, batch_size=1
         ws = [initial_w]
         w = initial_w
     else:
-        ws = [np.array([[initial_w]]*tx.shape[1])]
-        w = ws[0]
+        w = np.array([initial_w]*tx.shape[1])
+        ws = [w]
     losses = []
     loss = 0
     for y, x in iterator:
@@ -213,8 +213,9 @@ def least_squares(y, tx):
                     loss (float): MSE loss
     """
     w = lin.inv(tx.T.dot(tx)).dot(tx.T).dot(y)
-    w = ((1/(2*len(y))) * np.sum((y-tx.dot(w))**2), w)
-    return w, compute_MSE_loss(y, tx, w)
+    loss= compute_MSE_loss(y, tx, w)
+    
+    return w, loss
 
 
 # ridge regression
@@ -251,8 +252,8 @@ def learning_by_gradient_descent(y, tx, w, gamma):
        
     """
     loss = calculate_loss(y, tx, w)
-    grad = calculate_gradient(y, tx, w)
-    w = w-gamma*grad
+    grad = calculate_gradient(y, tx, w)   
+    w = w - grad * gamma
     return w, loss
 
 
@@ -286,24 +287,20 @@ def logistic_regression_gradient_descent(y, tx, initial_w=0, max_iters=1000, gam
         ws = [initial_w]
         w = initial_w
     else:
-        ws = [np.array([[initial_w]]*tx.shape[1])]
-        w = ws[0]
+        w = np.array([initial_w]*tx.shape[1])
+        ws = [w]
     # start the logistic regression
     for iter in range(max_iters):
         # get loss and update w.
         last_loss = loss
         w, loss = learning_by_gradient_descent(y, tx, w, gamma)
-
         # log info
         if log and iter % 100 == 0:
             print("Current iteration={i}, loss={l}".format(i=iter, l=loss))
-        # converge criterion
         if store:
             losses.append(loss)
             ws.append(w)
-        if len(losses) > 1 and np.abs(losses[-1] - losses[-2]) < threshold:
-            # note that this if statement will not evaluate the right hand side if len(losses) <=1 that is why I don't check <storage>
-            break
+        # converge criterion
         if np.abs(last_loss-loss) < threshold:
             break
     # visualization
