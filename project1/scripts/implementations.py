@@ -238,8 +238,7 @@ def ridge_regression(y, tx, lambda_):
 
 
 def learning_by_gradient_descent(y, tx, w, gamma):
-    """Do one step of gradient descent using logistic regression.
-    Return the loss and the updated w.
+    """Do one step of gradient descent using logistic regression. Returns the loss and the updated w.
 
     Args:
         y (numpy.ndarray): An array with shape (n,1)
