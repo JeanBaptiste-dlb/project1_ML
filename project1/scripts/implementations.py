@@ -54,7 +54,7 @@ def sigmoid(t):
     return np.exp(t)/(1+np.exp(t))
 
 
-def calculate_loss(y, tx, w):
+def calculate_loss(y, tx, w, lambda_=0):
     """compute the loss: negative log likelihood.
             Parameters:
                     y (numpy.ndarray): An array with shape (n,1)
@@ -63,12 +63,16 @@ def calculate_loss(y, tx, w):
             Returns:
                     sum (float) : the loss : negative log likelihood
     """
-    sum = 0
+    loss = 0
+    txw=tx.dot(w)
     for i in range(len(y)):
-        sum += np.log(1+np.exp(tx[i].T.dot(w)))
-        sum -= y[i]*(tx[i].T.dot(w))
+        loss+= - y[i]*txw[i] + np.log(1 + np.exp(txw[i]))
+        loss+= lambda_ * np.linalg.norm(w)
+    #for i in range(len(y)):
+    #    sum += np.log(1+np.exp(tx[i].T.dot(w)))
+    #    sum -= y[i]*(tx[i].T.dot(w))
     # sum=np.sum(np.log(1+np.exp(tx.T.dot(w))-y.dot(tx.T.dot(w))))
-    return sum
+    return loss
 
 
 def calculate_gradient(y, tx, w):
@@ -81,7 +85,7 @@ def calculate_gradient(y, tx, w):
                     grad (numpy.ndarray): An array with shape (m,1), the gradient
     """
     inner = sigmoid(tx.dot(w))-y
-    grad=tx.T.dot(inner)
+    grad= tx.T.dot(inner)
     return grad
 
 
@@ -167,7 +171,7 @@ def stochastic_gradient_descent(y, tx, initial_w, max_iters, gamma, batch_size=1
                     gamma (numpy.float64): gradiant multiplier gamma > 0 
                     log (bool): if set to True display step by step informations about the descent
                     batch_size (int): default to 1, number of data_points used to compute the gradient  
-                    log (bool): if set to True display step by step informations about the descent
+                    log (bool): if set to True display step by step informations about the descent. Defaults to False.
             Returns:
                     w (numpy.ndarray): ndarray with shape (n_iters,m) if store, else shape(m,1)
                     loss (Union[numpy.ndarray, float]): ndarray with shape (n_iters,) if store, else float
@@ -187,7 +191,7 @@ def stochastic_gradient_descent(y, tx, initial_w, max_iters, gamma, batch_size=1
         grad = compute_stoch_gradient(y, x, w)
         loss = compute_MSE_loss(y, x, w)
         # update w by gradient
-        w = (-gamma*grad).transpose()+w
+        w = (-gamma*grad).T+w
         # store w and loss
         if store:
             ws.append(w)
@@ -248,13 +252,11 @@ def learning_by_gradient_descent(y, tx, w, gamma):
     Returns:
         w (numpy.ndarray): ndarray with shape(m,1) 
         loss (float): MSE loss
-       
     """
     loss = calculate_loss(y, tx, w)
     grad = calculate_gradient(y, tx, w)   
-    w = w - grad * gamma
+    w = w - (grad * gamma).T
     return w, loss
-
 
 # logistic regression without regularization
 
@@ -267,14 +269,66 @@ def logistic_regression_gradient_descent(y, tx, initial_w=0, max_iters=1000, gam
         initial_w (Union[float, numpy.ndarray], optional): An array with shape (m,1) describing the model. Defaults to 0.
         max_iters (int, optional): number of iterations. Defaults to 1000.
         gamma (float, optional): descent scale factor, should be positive. Defaults to 0.01.
-        threshold (float, optional): [description]. Defaults to 1e-8.
-        log (bool, optional): [description]. Defaults to False.
-        store (bool, optional): [description]. Defaults to False.
+        threshold (float, optional): factor allowing the algorithm to stop in case of linear separability of the datapoints. Defaults to 1e-8.
+        log (bool): if set to True display step by step informations about the descent. Defaults to False.
+        store (bool, optional): if True stores all the gradients and loss from the descent. Defaults to False.
     Returns:
         w (numpy.ndarray): ndarray with shape (n_iters,m) if store, else shape(m,1) 
         loss (Union[numpy.ndarray, float]): ndarray with shape (n_iters,) if store, else float
     """
+    # init parameters
+    loss = np.inf
+    last_loss = np.inf
+    losses = []
+    ws = []
+    # build tx
+    tx = np.c_[np.ones((y.shape[0], 1)), tx]
+    if type(initial_w) == np.ndarray:
+        ws = [initial_w]
+        w = initial_w
+    else:
+        w = np.array([initial_w]*tx.shape[1])
+        ws = [w]
+    # start the logistic regression
+    for iter in range(max_iters):
+        # get loss and update w.
+        last_loss = loss
+        w, loss = learning_by_gradient_descent(y, tx, w, gamma)
+        # log info
+        if log and iter % 100 == 0:
+            print("Current iteration={i}, loss={l}".format(i=iter, l=loss))
+        if store:
+            losses.append(loss)
+            ws.append(w)
+        # converge criterion
+        if np.abs(last_loss-loss) < threshold:
+            break
+    # visualization
+    if store:
+        return ws, losses
+    else:
+        return w, loss
 
+
+# Logistic regression with regularization
+
+def reg_logistic_regression(y, tx, initial_w=0, max_iters=1000, gamma=0.01, threshold=1e-8, log=False, store=False, lambda_ = 0.1):
+    """Logistic regression using gradient descent
+
+    Args:
+        y (numpy.ndarray): An array with shape (n,1)
+        tx (numpy.ndarray): An array with shape (n,m)
+        initial_w (Union[float, numpy.ndarray], optional): An array with shape (m,1) describing the model. Defaults to 0.
+        max_iters (int, optional): number of iterations. Defaults to 1000.
+        gamma (float, optional): descent scale factor, should be positive. Defaults to 0.01.
+        threshold (float, optional): factor allowing the algorithm to stop in case of linear separability of the datapoints. Defaults to 1e-8.
+        log (bool, optional): if True print 100 step by 100 step logs for the descent. Defaults to False.
+        store (bool, optional): if True stores all the gradients and losses from the descent. Defaults to False.
+        lambda (float, optional): scale factor for the regularization, if to high risk of under fitting , if to low risk of overfiting.Defaults to 0.1.
+    Returns:
+        w (numpy.ndarray): ndarray with shape (n_iters,m) if store, else shape(m,1) 
+        loss (Union[numpy.ndarray, float]): ndarray with shape (n_iters,) if store, else float
+    """
     # init parameters
     loss = np.inf
     last_loss = np.inf
