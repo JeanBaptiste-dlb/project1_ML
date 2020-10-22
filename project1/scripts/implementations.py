@@ -67,7 +67,7 @@ def calculate_loss(y, tx, w, lambda_=0):
     txw=tx.dot(w)
     for i in range(len(y)):
         loss+= - y[i]*txw[i] + np.log(1 + np.exp(txw[i]))
-        loss+= lambda_ * np.linalg.norm(w)
+        loss+= lambda_ * np.linalg.norm(w)**2
     #for i in range(len(y)):
     #    sum += np.log(1+np.exp(tx[i].T.dot(w)))
     #    sum -= y[i]*(tx[i].T.dot(w))
@@ -75,7 +75,7 @@ def calculate_loss(y, tx, w, lambda_=0):
     return loss
 
 
-def calculate_gradient(y, tx, w):
+def calculate_gradient(y, tx, w, lambda_=0):
     """compute the gradient of loss.
             Parameters:
                     y (numpy.ndarray): An array with shape (n,1)
@@ -85,7 +85,7 @@ def calculate_gradient(y, tx, w):
                     grad (numpy.ndarray): An array with shape (m,1), the gradient
     """
     inner = sigmoid(tx.dot(w))-y
-    grad= tx.T.dot(inner)
+    grad= tx.T.dot(inner) + 2*lambda_*np.linalg.norm(w)
     return grad
 
 
@@ -252,7 +252,7 @@ def learning_by_gradient_descent(y, tx, w, gamma,lambda_=0):
         loss (float): MSE loss
     """
     loss = calculate_loss(y, tx, w, lambda_)
-    grad = calculate_gradient(y, tx, w)   
+    grad = calculate_gradient(y, tx, w, lambda_)
     w = w - (grad * gamma).T
     return w, loss
 
@@ -345,7 +345,6 @@ def reg_logistic_regression(y, tx, initial_w=0, max_iters=1000, gamma=0.01, thre
         # get loss and update w.
         last_loss = loss
         w, loss = learning_by_gradient_descent(y, tx, w, gamma,lambda_)
-        
         # log info
         if log and iter % 100 == 0:
             print("Current iteration={i}, loss={l}".format(i=iter, l=loss))
