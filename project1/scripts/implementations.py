@@ -68,6 +68,7 @@ def calculate_loss(y, tx, w, lambda_=0):
     for i in range(len(y)):
         loss+= - y[i]*txw[i] + np.log(1 + np.exp(txw[i]))
         loss+= lambda_ * np.linalg.norm(w)**2
+
     #for i in range(len(y)):
     #    sum += np.log(1+np.exp(tx[i].T.dot(w)))
     #    sum -= y[i]*(tx[i].T.dot(w))
@@ -85,7 +86,7 @@ def calculate_gradient(y, tx, w, lambda_=0):
                     grad (numpy.ndarray): An array with shape (m,1), the gradient
     """
     inner = sigmoid(tx.dot(w))-y
-    grad= tx.T.dot(inner) + 2*lambda_*np.linalg.norm(w)
+    grad= tx.T.dot(inner) + 2*lambda_*w
     return grad
 
 

@@ -1,17 +1,21 @@
-# iimports 
 
+# imports 
 import importlib.util
-import implementations
+import implementations as implementations
 import numpy as np
 import matplotlib.pyplot as plt
 from proj1_helpers import *
-
 #load datas 
-DATA_TRAIN_PATH = "../data/train.csv" 
+import csv
+import numpy as np
+
+DATA_TRAIN_PATH = "../data/train.csv"
 y, tX, ids = load_csv_data(DATA_TRAIN_PATH)
 
 DATA_TEST_PATH = "../data/test.csv" 
 _, tX_test, ids_test = load_csv_data(DATA_TEST_PATH)
+
+OUTPUT_PATH = '../data/submission.csv'
 
 # normalize datas
 def normalize (tx):
@@ -69,22 +73,20 @@ def get_w_loss(y,x,method,initial_w=0,max_iters=10,gamma=0.00000005,threshold=1e
     else:
         return ValueError
     
-OUTPUT_PATH = '../data/submission.csv'
-#for i in range(-10,10,1):
-#    ml,weights=get_w(y,tX,2,i,max_iters=1000,log=False)
-#    mls.append(ml)
-#    weightss.append(weights)
-#print(np.where(mls==min(mls)))
-#print(mls)
-method=6
 
-weights, loss=get_w_loss(y,tX,method,logs=True,max_iters=10000, gamma=0.0000005)
-print(str(weights) + str(loss))
-#weights=weightss[np.where(mls==min(mls))[0][0]]
+
+
+method=6 
 
 if(method==5 or method==6):
     data = np.c_[np.ones((_.shape[0], 1)), tX_test]
 else:
     data=tX_test
+   
+gamma=5/25000
+weights, losses = get_w_loss(y,tX,method,1,max_iters=100,gamma=gamma,store=True)
+index = np.where(losses == np.amin(losses))[0][0]
+weights = weights[index]
+
 y_pred = predict_labels(weights, data)
 create_csv_submission(ids_test, y_pred, OUTPUT_PATH)
