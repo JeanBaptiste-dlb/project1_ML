@@ -176,8 +176,7 @@ def stochastic_gradient_descent(y, tx, initial_w, max_iters, gamma, batch_size=1
                     w (numpy.ndarray): ndarray with shape (n_iters,m) if store, else shape(m,1)
                     loss (Union[numpy.ndarray, float]): ndarray with shape (n_iters,) if store, else float
     """
-    iterator = batch_iter(
-        y, tx, batch_size, num_batches=max_iters, shuffle=True)
+    iterator = batch_iter( y, tx, batch_size, num_batches=max_iters, shuffle=True)
     if type(initial_w) == np.ndarray:
         ws = [initial_w]
         w = initial_w
@@ -185,7 +184,6 @@ def stochastic_gradient_descent(y, tx, initial_w, max_iters, gamma, batch_size=1
         w = np.array([initial_w]*tx.shape[1])
         ws = [w]
     losses = []
-    loss = 0
     for y, x in iterator:
         # compute gradient and loss
         grad = compute_stoch_gradient(y, x, w)
@@ -193,7 +191,7 @@ def stochastic_gradient_descent(y, tx, initial_w, max_iters, gamma, batch_size=1
         # update w by gradient
         w = (-gamma*grad).T+w
         # store w and loss
-        if store:
+        if (store):
             ws.append(w)
             losses.append(loss)
         if(log):
@@ -241,7 +239,7 @@ def ridge_regression(y, tx, lambda_):
 # Logistic regression
 
 
-def learning_by_gradient_descent(y, tx, w, gamma):
+def learning_by_gradient_descent(y, tx, w, gamma,lambda_=0):
     """Do one step of gradient descent using logistic regression. Returns the loss and the updated w.
 
     Args:
@@ -253,7 +251,7 @@ def learning_by_gradient_descent(y, tx, w, gamma):
         w (numpy.ndarray): ndarray with shape(m,1) 
         loss (float): MSE loss
     """
-    loss = calculate_loss(y, tx, w)
+    loss = calculate_loss(y, tx, w, lambda_)
     grad = calculate_gradient(y, tx, w)   
     w = w - (grad * gamma).T
     return w, loss
@@ -346,7 +344,8 @@ def reg_logistic_regression(y, tx, initial_w=0, max_iters=1000, gamma=0.01, thre
     for iter in range(max_iters):
         # get loss and update w.
         last_loss = loss
-        w, loss = learning_by_gradient_descent(y, tx, w, gamma)
+        w, loss = learning_by_gradient_descent(y, tx, w, gamma,lambda_)
+        
         # log info
         if log and iter % 100 == 0:
             print("Current iteration={i}, loss={l}".format(i=iter, l=loss))
