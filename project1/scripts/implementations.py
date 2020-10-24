@@ -1,8 +1,10 @@
 import numpy as np
 import numpy.linalg as lin
+
 from proj1_helpers import *
 
 # Base Functions
+
 
 def compute_MSE_loss(y, tx, w):
     """Calculate the MSE loss.
@@ -56,7 +58,7 @@ def sigmoid(t):
 
 
 def calculate_loss(y, tx, w, lambda_=0):
-    """compute the loss: negative log likelihood.
+    """compute the loss: negative log likelihood. divided by 2*n to have more readable values.
             Parameters:
                     y (numpy.ndarray): An array with shape (n,1)
                     tx (numpy.ndarray): An array with shape (n,m)
@@ -65,33 +67,56 @@ def calculate_loss(y, tx, w, lambda_=0):
                     sum (float) : the loss : negative log likelihood
     """
     loss = 0
-    txw=tx.dot(w)
+    txw = tx.dot(w)
     for i in range(len(y)):
-        loss+= - y[i]*txw[i] + np.log(1 + np.exp(txw[i]))
-        loss+= lambda_ * np.linalg.norm(w)**2
+        loss += - y[i]*txw[i] + np.log(1 + np.exp(txw[i]))
+        loss += lambda_ * np.linalg.norm(w)**2
     return loss/(2*len(y))
 
-def stats(y,y_pred):
+
+def stats(y, y_pred):
+    """compute the confusion matrix for the y_pred regarding y.
+
+    Args:
+        y (numpy.ndarray): labels
+        y_pred (np.ndarray): predictions
+
+    Returns:
+        (int, int, int, int): #True Positives, #True Negatives, #False Positives, #False Negatives
+    """
     TP = len([i for i, j in zip(y_pred, y) if i == j == 1])
     TN = len([i for i, j in zip(y_pred, y) if i == j == -1])
-    FP = len([i for i, j in zip(y_pred, y) if i != j and i == 1 ])
-    FN = len([i for i, j in zip(y_pred, y) if i != j and i == 1 ])
-    precision = TP / (TP + FP) 
-    recall = TP / (TP + FN)
+    FP = len([i for i, j in zip(y_pred, y) if i != j and i == 1])
+    FN = len([i for i, j in zip(y_pred, y) if i != j and i == - 1])
+
+    if(TP+FP == 0):
+        print("bad model")
+        precision = -1
+    else:
+        precision = TP / (TP + FP)
+    if(TP+FN):
+        print("bad model")
+        recall = -1
+    else:
+        recall = TP / (TP + FN)
+
     return TP, TN, FP, FN, precision, recall
-    
+
+
 def f1_score(y, y_pred):
     """compute the F1_score for y and y_pred. 
 
     Args:
-        y (np.ndarray): test 
-        y_pred ([type]): [description]
+        y (np.ndarray): labels  
+        y_pred (np.ndarray): predictions
 
     Returns:
-        [type]: [description]
+        float: the F1 score of the y_pred regarding y.
     """
-    precision = stats(y,y_pred)[4]
-    recall = stats(y,y_pred)[5]
+
+    precision = stats(y, y_pred)[4]
+    recall = stats(y, y_pred)[5]
+
     return 2*((precision*recall)/(precision+recall))
 
 
@@ -106,8 +131,65 @@ def calculate_gradient(y, tx, w, lambda_=0):
     """
 
     inner = sigmoid(tx.dot(w))-y
-    grad= tx.T.dot(inner) + 2*lambda_*w
+    grad = tx.T.dot(inner) + 2*lambda_*w
     return grad
+
+# ! TODO refactor names and polynomial regression
+
+
+def yy2(tx, k, ld):
+
+    N, n = tx.shape
+    tx2 = []
+    y = []
+    for i in range(N):
+        z = tx[i, k]
+        if z != -999:
+            l = tx[i]
+            tx2 += [np.delete(l, ld)]
+            y += [z]
+    return np.array(tx2), np.array(y)
+
+
+def yy3(tx, ld):
+    N, n = tx.shape
+    tx3 = []
+    for i in range(N):
+        l2 = tx[i]
+        tx3 += [np.delete(l2, ld)]
+    return np.array(tx3)
+
+
+def Datas_completion_lacking_values_predicted(tx):
+    """complete tx using a regression
+    Args:
+        tx (numpy.ndarray): with shape(n,m)
+
+    Returns:
+        numpy?ndarray: with shape (n,m)
+    """
+    N, n = tx.shape
+    # columns with lacking values (-999)
+    l = [0, 4, 5, 6, 12, 23, 24, 25, 26, 27, 28]
+    tx2 = np.zeros((N, n))
+    for i in range(n):
+        if i not in l:
+            for j in range(N):
+                tx2[j, i] = tx[j, i]
+    txk2 = yy3(tx, l)
+    for k in l:
+        txk, yk = yy2(tx, k, l)
+        w, loss = get_w_loss(yk, build_poly(txk, 6), 2,
+                             gamma=1/1000, max_iters=500)
+
+        yreg = np.dot(build_poly(txk2, 6), w)
+        for j in range(N):
+            if tx[j, k] == -999:
+                print(yreg[j])
+                tx2[j, k] = yreg[j]
+            else:
+                tx2[j, k] = tx[j, k]
+    return tx2
 
 
 def batch_iter(y, tx, batch_size, num_batches=1, shuffle=True):
@@ -149,7 +231,8 @@ def build_k_indices(n, k_fold, seed=0):
     interval = int(n / k_fold)
     np.random.seed(seed)
     indices = np.random.permutation(n)
-    k_indices = [indices[k * interval: (k + 1) * interval] for k in range(k_fold)]
+    k_indices = [indices[k * interval: (k + 1) * interval]
+                 for k in range(k_fold)]
     return np.array(k_indices)
 
 
@@ -162,14 +245,16 @@ def cross_validation_split(y, x, k_indices, k):
         k (int): should be in [0,..., number_of_folds]. uses the k_th subset as the test set.
     Returns:
         (numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray): returns x_train, y_train, x_test, y_test with respective shapes (n,m-(n/number_of_folds)), (n-(n/number_of_folds),1), (n,n/number_of_folds), (n/number_of_folds, 1)
-        
+
     """
-    # get k'th subgroup in test, others in train: 
-    test=k_indices[k]
-    k_1=k_indices[:k].reshape(1,len(k_indices[:k])*len(k_indices[0]))
-    k_2=k_indices[(k+1):].reshape(1,len(k_indices[(k+1):])*len(k_indices[0]))
-    train=np.concatenate([k_1[0],k_2[0]])
-    return x[[train]], y[[train]],x[[test]], y[[test]]
+    # get k'th subgroup in test, others in train:
+    test = k_indices[k]
+    k_1 = k_indices[:k].reshape(1, len(k_indices[:k])*len(k_indices[0]))
+    k_2 = k_indices[(k+1):].reshape(1, len(k_indices[(k+1):])
+                                    * len(k_indices[0]))
+    train = np.concatenate([k_1[0], k_2[0]])
+    return x[[train]], y[[train]], x[[test]], y[[test]]
+
 
 def build_poly(x, degree):
     """polynomial basis functions for input data x, for j=0 up to j=degree.
@@ -182,16 +267,17 @@ def build_poly(x, degree):
         numpy.ndarray: Expended x with shape (n, degree+1, m)
     """
 
-    basis=[]
+    basis = []
     for row in x:
-        vec=[]
-        for j in range(degree+1):
-            vec+=list(map(lambda x:pow(x,j), row))
+        vec = []
+        for j in range(1, degree+1):
+            vec += list(map(lambda x: pow(x, j), row))
+        vec.append(1)
         basis.append(vec)
     return np.array(basis)
 
 
-def normalize (x):
+def normalize(x):
     """normalize each column of the dataset using Min-Max feature scaling.
 
     Args:
@@ -200,11 +286,11 @@ def normalize (x):
     Returns:
         numpy.ndarray: tx normalized.
     """
-    tmp=[]
+    tmp = []
     for column in x.T:
         min = column.min()
         max = column.max()
-        new_col=(column - min)/(max-min)
+        new_col = (column - min)/(max-min)
         tmp.append(new_col)
     return np.array(tmp).T
 
@@ -224,7 +310,7 @@ def least_squares_GD(y, tx, initial_w, max_iters, gamma, log=False, store=False)
                     log (bool): if set to True display step by step informations about the descent
             Returns:
                     (numpy.ndarray, Union[numpy.ndarray, float]): [0] w : ndarray with shape (n_iters,m) if store, else shape(m,1), [1] loss: ndarray with shape (n_iters,) if store, else float
-                     
+
     """
     # Define parameters to store w and loss
     if type(initial_w) == np.ndarray:
@@ -239,7 +325,7 @@ def least_squares_GD(y, tx, initial_w, max_iters, gamma, log=False, store=False)
         # compute gradient, loss and next iter w
         grad = compute_gradient(y, tx, w)
         loss = compute_MSE_loss(y, tx, w)
-        w = (-gamma*grad).T+w 
+        w = (-gamma*grad).T+w
         # store w and loss
         if store:
             ws.append(w)
@@ -269,7 +355,8 @@ def stochastic_gradient_descent(y, tx, initial_w, max_iters, gamma, batch_size=1
             Returns:
                    (numpy.ndarray, Union[numpy.ndarray, float]): [0] w : ndarray with shape (n_iters,m) if store, else shape(m,1), [1] loss: ndarray with shape (n_iters,) if store, else float
     """
-    iterator = batch_iter( y, tx, batch_size, num_batches=max_iters, shuffle=True)
+    iterator = batch_iter(
+        y, tx, batch_size, num_batches=max_iters, shuffle=True)
     if type(initial_w) == np.ndarray:
         ws = [initial_w]
         w = initial_w
@@ -306,9 +393,12 @@ def least_squares(y, tx):
             Returns:
                     (numpy.ndarray, float): [0] w*: An array with shape (m,1) the optimal model for complexity m, [1] loss: MSE loss 
     """
-    w = lin.inv(tx.T.dot(tx)).dot(tx.T).dot(y)
-    loss= compute_MSE_loss(y, tx, w)
-    
+    xtx = tx.T.dot(tx)
+    print(xtx)
+    a = lin.inv(xtx)
+    w = a.dot(tx.T).dot(y)
+    loss = compute_MSE_loss(y, tx, w)
+
     return w, loss
 
 
@@ -330,7 +420,7 @@ def ridge_regression(y, tx, lambda_):
 # Logistic regression
 
 
-def learning_by_gradient_descent(y, tx, w, gamma,lambda_=0):
+def learning_by_gradient_descent(y, tx, w, gamma, lambda_=0):
     """Do one step of gradient descent using logistic regression. Returns the loss and the updated w.
 
     Args:
@@ -348,7 +438,8 @@ def learning_by_gradient_descent(y, tx, w, gamma,lambda_=0):
 
 # logistic regression without regularization
 
-def logistic_regression_gradient_descent(y, tx, initial_w=0, max_iters=1000, gamma=0.01, threshold=1e-8, log=False, store=False):
+
+def logistic_regression_gradient_descent(y, tx, initial_w=0, max_iters=1000, gamma=0.01, threshold=1e-15, log=False, store=False):
     """Logistic regression using gradient descent
 
     Args:
@@ -389,6 +480,7 @@ def logistic_regression_gradient_descent(y, tx, initial_w=0, max_iters=1000, gam
             ws.append(w)
         # converge criterion
         if np.abs(last_loss-loss) < threshold:
+            print("threshold exit")
             break
     # visualization
     if store:
@@ -399,7 +491,7 @@ def logistic_regression_gradient_descent(y, tx, initial_w=0, max_iters=1000, gam
 
 # Logistic regression with regularization
 
-def reg_logistic_regression(y, tx, initial_w=0, max_iters=1000, gamma=0.01, threshold=1e-8, log=False, store=False, lambda_ = 0.1):
+def reg_logistic_regression(y, tx, initial_w=0, max_iters=1000, gamma=0.01, threshold=1e-8, log=False, store=False, lambda_=0.1):
     """Logistic regression using gradient descent
 
     Args:
@@ -432,7 +524,7 @@ def reg_logistic_regression(y, tx, initial_w=0, max_iters=1000, gamma=0.01, thre
     for iter in range(max_iters):
         # get loss and update w.
         last_loss = loss
-        w, loss = learning_by_gradient_descent(y, tx, w, gamma,lambda_)
+        w, loss = learning_by_gradient_descent(y, tx, w, gamma, lambda_)
         # log info
         if log and iter % 100 == 0:
             print("Current iteration={i}, loss={l}".format(i=iter, l=loss))
@@ -441,16 +533,17 @@ def reg_logistic_regression(y, tx, initial_w=0, max_iters=1000, gamma=0.01, thre
             ws.append(w)
         # converge criterion
         if np.abs(last_loss-loss) < threshold:
+            print("threshold exit")
             break
     # visualization
     if store:
         return ws, losses
     else:
         return w, loss
-    
-    
-#apply method
-def get_w_loss(y,x,method,initial_w=0,max_iters=10,gamma=0.00000005,threshold=1e-08,logs=False,batch_size=1,lambda_=0.005, store=False):
+
+
+# apply method
+def get_w_loss(y, x, method, initial_w=0, max_iters=10, gamma=0.00000005, threshold=1e-08, logs=False, batch_size=1, lambda_=0.005, store=False):
     """applies the algorithm described by <method>. by default as the awaited behaviour for the project, but offers some possible enhancements (batch_size,threshold, logs, store)
     Args:
         y (numpy.ndarray): An array with shape (n,1)
@@ -475,25 +568,23 @@ def get_w_loss(y,x,method,initial_w=0,max_iters=10,gamma=0.00000005,threshold=1e
         loss (Union[numpy.ndarray, float]): ndarray with shape (n_iters,) if store and if the method is a descent, else float
     :raises ValueError: if method is not <6
     """
-    if(method==1):
-        return least_squares_GD(y,x, initial_w, max_iters, gamma, logs,store)
-    elif(method==2): 
-        return stochastic_gradient_descent(y,x, initial_w, max_iters, gamma, batch_size, logs,store)
-    elif(method==3):
-        return least_squares(y,x)
-    elif(method==4):
-        return ridge_regression(y,x, lambda_=lambda_)
-    elif(method==5):
-        return logistic_regression_gradient_descent(y,x,initial_w,max_iters,gamma,threshold,logs,store)
-    elif(method==6):
-        return reg_logistic_regression(y,x,initial_w,max_iters,gamma,threshold,logs,store,lambda_)
+    if(method == 1):
+        return least_squares_GD(y, x, initial_w, max_iters, gamma, logs, store)
+    elif(method == 2):
+        return stochastic_gradient_descent(y, x, initial_w, max_iters, gamma, batch_size, logs, store)
+    elif(method == 3):
+        return least_squares(y, x)
+    elif(method == 4):
+        return ridge_regression(y, x, lambda_=lambda_)
+    elif(method == 5):
+        return logistic_regression_gradient_descent(y, x, initial_w, max_iters, gamma, threshold, logs, store)
+    elif(method == 6):
+        return reg_logistic_regression(y, x, initial_w, max_iters, gamma, threshold, logs, store, lambda_)
     else:
         return ValueError
-    
 
 
-
-def submit(_,tX_test,w, ids_test,method,degree):
+def submit(_, tX_test, w, ids_test, method, degree):
     """create a submission for the model w. 
 
     Args:
@@ -506,9 +597,9 @@ def submit(_,tX_test,w, ids_test,method,degree):
         degree (int): degree of the feature expension used to generate w.
         w (np.ndarray): model for the submission
     """
-    OUTPUT_PATH="../data/submission.csv"
-    if(method in [5,6]):
-        data = np.c_[np.ones((_.shape[0], 1)), build_poly(tX_test,degree)]
+    OUTPUT_PATH = "../data/submission.csv"
+    if(method in [5, 6]):
+        data = np.c_[np.ones((_.shape[0], 1)), build_poly(tX_test, degree)]
     else:
         data = build_poly(tX_test, degree)
     submission_y = predict_labels(w, data)
