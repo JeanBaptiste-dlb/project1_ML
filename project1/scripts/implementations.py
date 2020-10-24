@@ -1,5 +1,6 @@
 import numpy as np
 import numpy.linalg as lin
+from proj1_helpers import *
 
 # Base Functions
 
@@ -47,9 +48,9 @@ def compute_stoch_gradient(y, tx, w):
 def sigmoid(t):
     """apply the sigmoid function on t.
             Parameters:
-                    t (numeric | numpy.ndarray)
+                    t (Union[numeric, numpy.ndarray]) 
             Returns:
-                    sigmoid (numeric | numpy.ndarray)
+                    (Union[numeric,  numpy.ndarray])
     """
     return np.exp(t)/(1+np.exp(t))
 
@@ -68,12 +69,30 @@ def calculate_loss(y, tx, w, lambda_=0):
     for i in range(len(y)):
         loss+= - y[i]*txw[i] + np.log(1 + np.exp(txw[i]))
         loss+= lambda_ * np.linalg.norm(w)**2
+    return loss/(2*len(y))
 
-    #for i in range(len(y)):
-    #    sum += np.log(1+np.exp(tx[i].T.dot(w)))
-    #    sum -= y[i]*(tx[i].T.dot(w))
-    # sum=np.sum(np.log(1+np.exp(tx.T.dot(w))-y.dot(tx.T.dot(w))))
-    return loss
+def stats(y,y_pred):
+    TP = len([i for i, j in zip(y_pred, y) if i == j == 1])
+    TN = len([i for i, j in zip(y_pred, y) if i == j == -1])
+    FP = len([i for i, j in zip(y_pred, y) if i != j and i == 1 ])
+    FN = len([i for i, j in zip(y_pred, y) if i != j and i == 1 ])
+    precision = TP / (TP + FP) 
+    recall = TP / (TP + FN)
+    return TP, TN, FP, FN, precision, recall
+    
+def f1_score(y, y_pred):
+    """compute the F1_score for y and y_pred. 
+
+    Args:
+        y (np.ndarray): test 
+        y_pred ([type]): [description]
+
+    Returns:
+        [type]: [description]
+    """
+    precision = stats(y,y_pred)[4]
+    recall = stats(y,y_pred)[5]
+    return 2*((precision*recall)/(precision+recall))
 
 
 def calculate_gradient(y, tx, w, lambda_=0):
@@ -85,6 +104,7 @@ def calculate_gradient(y, tx, w, lambda_=0):
             Returns:
                     grad (numpy.ndarray): An array with shape (m,1), the gradient
     """
+
     inner = sigmoid(tx.dot(w))-y
     grad= tx.T.dot(inner) + 2*lambda_*w
     return grad
@@ -115,6 +135,80 @@ def batch_iter(y, tx, batch_size, num_batches=1, shuffle=True):
             yield shuffled_y[start_index:end_index], shuffled_tx[start_index:end_index]
 
 
+def build_k_indices(n, k_fold, seed=0):
+    """genrates indices for k-fold
+
+    Args:
+        n (int): number of indices
+        k_fold (int): number of indices/folds to generate. should be unsigned.
+        seed (integer): seed to use for pseudo-random indices generation, a seed value is set by default for reproducibility. Defaults to 0.
+
+    Returns:
+        np.ndarray: An array with shape (k_fold,n/k_fold) containing k_fold list of shuffled indices. Concatenated, the folds form a shuffled range(0, n). 
+    """
+    interval = int(n / k_fold)
+    np.random.seed(seed)
+    indices = np.random.permutation(n)
+    k_indices = [indices[k * interval: (k + 1) * interval] for k in range(k_fold)]
+    return np.array(k_indices)
+
+
+def cross_validation_split(y, x, k_indices, k):
+    """generate a train test split with k_indices as the split, k-th subset as the test set.
+    Args:
+        y (numpy.ndarray): An array with shape (n,1)
+        x (numpy.ndarray): An array with shape (n,m)
+        k_indices (numpy.ndarray): An array with shape (number_of_folds, n/number_of_folds)
+        k (int): should be in [0,..., number_of_folds]. uses the k_th subset as the test set.
+    Returns:
+        (numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray): returns x_train, y_train, x_test, y_test with respective shapes (n,m-(n/number_of_folds)), (n-(n/number_of_folds),1), (n,n/number_of_folds), (n/number_of_folds, 1)
+        
+    """
+    # get k'th subgroup in test, others in train: 
+    test=k_indices[k]
+    k_1=k_indices[:k].reshape(1,len(k_indices[:k])*len(k_indices[0]))
+    k_2=k_indices[(k+1):].reshape(1,len(k_indices[(k+1):])*len(k_indices[0]))
+    train=np.concatenate([k_1[0],k_2[0]])
+    return x[[train]], y[[train]],x[[test]], y[[test]]
+
+def build_poly(x, degree):
+    """polynomial basis functions for input data x, for j=0 up to j=degree.
+
+    Args:
+        x (numpy.ndarray): An array of shape (n,m) to expend.
+        degree (int): should be unsigned
+
+    Returns:
+        numpy.ndarray: Expended x with shape (n, degree+1, m)
+    """
+
+    basis=[]
+    for row in x:
+        vec=[]
+        for j in range(degree+1):
+            vec+=list(map(lambda x:pow(x,j), row))
+        basis.append(vec)
+    return np.array(basis)
+
+
+def normalize (x):
+    """normalize each column of the dataset using Min-Max feature scaling.
+
+    Args:
+        x (numpy.ndarray): An array of shape (n,m) 
+
+    Returns:
+        numpy.ndarray: tx normalized.
+    """
+    tmp=[]
+    for column in x.T:
+        min = column.min()
+        max = column.max()
+        new_col=(column - min)/(max-min)
+        tmp.append(new_col)
+    return np.array(tmp).T
+
+
 # Algorithms
 
 # least squares gradient descent
@@ -129,8 +223,8 @@ def least_squares_GD(y, tx, initial_w, max_iters, gamma, log=False, store=False)
                     gamma (numpy.float64): gradiant multiplier gamma > 0 
                     log (bool): if set to True display step by step informations about the descent
             Returns:
-                    w (numpy.ndarray): ndarray with shape (n_iters,m) if store, else shape(m,1)
-                    loss (Union[numpy.ndarray, float]): ndarray with shape (n_iters,) if store, else float
+                    (numpy.ndarray, Union[numpy.ndarray, float]): [0] w : ndarray with shape (n_iters,m) if store, else shape(m,1), [1] loss: ndarray with shape (n_iters,) if store, else float
+                     
     """
     # Define parameters to store w and loss
     if type(initial_w) == np.ndarray:
@@ -145,8 +239,7 @@ def least_squares_GD(y, tx, initial_w, max_iters, gamma, log=False, store=False)
         # compute gradient, loss and next iter w
         grad = compute_gradient(y, tx, w)
         loss = compute_MSE_loss(y, tx, w)
-        w = (-gamma*grad).T+w
-        
+        w = (-gamma*grad).T+w 
         # store w and loss
         if store:
             ws.append(w)
@@ -154,7 +247,7 @@ def least_squares_GD(y, tx, initial_w, max_iters, gamma, log=False, store=False)
         if(log):
             print("Gradient Descent({bi}/{ti}): loss={l}, w0={w0}, w1={w1}".format(
                 bi=n_iter, ti=max_iters - 1, l=loss, w0=w[0], w1=w[1]))
-    if store:
+    if (store):
         return ws, losses
     else:
         return w, loss
@@ -174,8 +267,7 @@ def stochastic_gradient_descent(y, tx, initial_w, max_iters, gamma, batch_size=1
                     batch_size (int): default to 1, number of data_points used to compute the gradient  
                     log (bool): if set to True display step by step informations about the descent. Defaults to False.
             Returns:
-                    w (numpy.ndarray): ndarray with shape (n_iters,m) if store, else shape(m,1)
-                    loss (Union[numpy.ndarray, float]): ndarray with shape (n_iters,) if store, else float
+                   (numpy.ndarray, Union[numpy.ndarray, float]): [0] w : ndarray with shape (n_iters,m) if store, else shape(m,1), [1] loss: ndarray with shape (n_iters,) if store, else float
     """
     iterator = batch_iter( y, tx, batch_size, num_batches=max_iters, shuffle=True)
     if type(initial_w) == np.ndarray:
@@ -212,8 +304,7 @@ def least_squares(y, tx):
                     y (numpy.ndarray): An array with shape (n,1)
                     tx (numpy.ndarray): An array with shape (n,m)
             Returns:
-                    w* (numpy.ndarray): An array with shape (m,1) the optimal model of complexity k
-                    loss (float): MSE loss
+                    (numpy.ndarray, float): [0] w*: An array with shape (m,1) the optimal model for complexity m, [1] loss: MSE loss 
     """
     w = lin.inv(tx.T.dot(tx)).dot(tx.T).dot(y)
     loss= compute_MSE_loss(y, tx, w)
@@ -230,8 +321,7 @@ def ridge_regression(y, tx, lambda_):
                     tx (numpy.ndarray): An array with shape (n,m)
                     lambda_ (numpy.float64): regularization factor lambda_>0
             Returns:
-                    w* (numpy.ndarray): An array with shape (m,1) the optimal model
-                    loss (float): MSE loss
+                    (numpy.ndarray, float): [0] w*: An array with shape (m,1) the optimal model for complexity m and lambda_ regularization factor, [1] loss: MSE loss 
     """
     lambda_p = 2*len(y)*lambda_
     w = lin.inv(tx.T.dot(tx)+lambda_p*np.identity(len(tx[0]))).dot(tx.T).dot(y)
@@ -249,12 +339,11 @@ def learning_by_gradient_descent(y, tx, w, gamma,lambda_=0):
         w (numpy.ndarray): an array with shape (m, 1)
         gamma (float): descent scale factor, should be positive.
     Returns:
-        w (numpy.ndarray): ndarray with shape(m,1) 
-        loss (float): MSE loss
+        (numpy.ndarray, float): [0] w: ndarray with shape(m,1), [1] loss: MSE loss
     """
     loss = calculate_loss(y, tx, w, lambda_)
     grad = calculate_gradient(y, tx, w, lambda_)
-    w = w - (grad * gamma).T
+    w = w - (grad * gamma)
     return w, loss
 
 # logistic regression without regularization
@@ -272,8 +361,7 @@ def logistic_regression_gradient_descent(y, tx, initial_w=0, max_iters=1000, gam
         log (bool): if set to True display step by step informations about the descent. Defaults to False.
         store (bool, optional): if True stores all the gradients and loss from the descent. Defaults to False.
     Returns:
-        w (numpy.ndarray): ndarray with shape (n_iters,m) if store, else shape(m,1) 
-        loss (Union[numpy.ndarray, float]): ndarray with shape (n_iters,) if store, else float
+        (numpy.ndarray, Union[numpy.ndarray, float]): [0] w : ndarray with shape (n_iters,m) if store, else shape(m,1), [1] loss: ndarray with shape (n_iters,) if store, else float
     """
     # init parameters
     loss = np.inf
@@ -325,8 +413,7 @@ def reg_logistic_regression(y, tx, initial_w=0, max_iters=1000, gamma=0.01, thre
         store (bool, optional): if True stores all the gradients and losses from the descent. Defaults to False.
         lambda (float, optional): scale factor for the regularization, if to high risk of under fitting , if to low risk of overfiting.Defaults to 0.1.
     Returns:
-        w (numpy.ndarray): ndarray with shape (n_iters,m) if store, else shape(m,1) 
-        loss (Union[numpy.ndarray, float]): ndarray with shape (n_iters,) if store, else float
+        (numpy.ndarray, Union[numpy.ndarray, float]): [0] w : ndarray with shape (n_iters,m) if store, else shape(m,1), [1] loss: ndarray with shape (n_iters,) if store, else float
     """
     # init parameters
     loss = np.inf
@@ -360,3 +447,70 @@ def reg_logistic_regression(y, tx, initial_w=0, max_iters=1000, gamma=0.01, thre
         return ws, losses
     else:
         return w, loss
+    
+    
+#apply method
+def get_w_loss(y,x,method,initial_w=0,max_iters=10,gamma=0.00000005,threshold=1e-08,logs=False,batch_size=1,lambda_=0.005, store=False):
+    """applies the algorithm described by <method>. by default as the awaited behaviour for the project, but offers some possible enhancements (batch_size,threshold, logs, store)
+    Args:
+        y (numpy.ndarray): An array with shape (n,1)
+        tx (numpy.ndarray): An array with shape (n,m)
+        method (int): 1 -> least_squares_GD*                
+                      2 -> stochastic_gradient_descent*
+                      3 -> least_squares
+                      4 -> ridge_regression
+                      5 -> logistic_regression_gradient_descent*
+                      6 -> reg_logistic_regression*
+        * this algorithm is an iterative descent
+        initial_w (Union[float, numpy.ndarray], optional): if a int is set w will start with an array. Defaults to 0.
+        max_iters (int, optional): number of iterations (only for descent algorithms). Defaults to 10.
+        gamma (float, optional): descent scale factor (only for descent algorithms). Defaults to 0.00000005.
+        threshold (float, optional): threshold to prevent divergence in case of linear separability (I assume). Defaults to 1e-08.
+        log (bool, optional): if True step by step logs are displayed (only for descent algorithms). Defaults to False.
+        batch_size (int, optional): size of the sample on which to compute the partial gradient for stochastic gradient descent algorithm. Defaults to 1.
+        lambda_ (float, optional): regularization factor with good values allows to limit overfitting and underfitting (only for ridge_regression and reg_logistic_regression). Defaults to 0.005.
+        store (bool, optional): [description]. Defaults to False.
+    Returns:
+        w (numpy.ndarray): ndarray with shape (n_iters,m) if store and if the method is a descent, else shape(m,1) 
+        loss (Union[numpy.ndarray, float]): ndarray with shape (n_iters,) if store and if the method is a descent, else float
+    :raises ValueError: if method is not <6
+    """
+    if(method==1):
+        return least_squares_GD(y,x, initial_w, max_iters, gamma, logs,store)
+    elif(method==2): 
+        return stochastic_gradient_descent(y,x, initial_w, max_iters, gamma, batch_size, logs,store)
+    elif(method==3):
+        return least_squares(y,x)
+    elif(method==4):
+        return ridge_regression(y,x, lambda_=lambda_)
+    elif(method==5):
+        return logistic_regression_gradient_descent(y,x,initial_w,max_iters,gamma,threshold,logs,store)
+    elif(method==6):
+        return reg_logistic_regression(y,x,initial_w,max_iters,gamma,threshold,logs,store,lambda_)
+    else:
+        return ValueError
+    
+
+
+
+def submit(_,tX_test,w, ids_test,method,degree):
+    """create a submission for the model w. 
+
+    Args:
+        method (int): method used to generate w :   1 -> least_squares_GD               
+                                                    2 -> stochastic_gradient_descent
+                                                    3 -> least_squares
+                                                    4 -> ridge_regression
+                                                    5 -> logistic_regression_gradient_descent
+                                                    6 -> reg_logistic_regression
+        degree (int): degree of the feature expension used to generate w.
+        w (np.ndarray): model for the submission
+    """
+    OUTPUT_PATH="../data/submission.csv"
+    if(method in [5,6]):
+        data = np.c_[np.ones((_.shape[0], 1)), build_poly(tX_test,degree)]
+    else:
+        data = build_poly(tX_test, degree)
+    submission_y = predict_labels(w, data)
+    create_csv_submission(ids_test, submission_y, OUTPUT_PATH)
+    return None
