@@ -85,16 +85,16 @@ def stats(y, y_pred):
         (int, int, int, int): #True Positives, #True Negatives, #False Positives, #False Negatives
     """
     TP = len([i for i, j in zip(y_pred, y) if i == j == 1])
-    TN = len([i for i, j in zip(y_pred, y) if i == j == -1])
+    TN = len([i for i, j in zip(y_pred, y) if i == j != 1])
     FP = len([i for i, j in zip(y_pred, y) if i != j and i == 1])
-    FN = len([i for i, j in zip(y_pred, y) if i != j and i == - 1])
+    FN = len([i for i, j in zip(y_pred, y) if i != j and i != 1])
 
     if(TP+FP == 0):
         print("bad model")
         precision = -1
     else:
         precision = TP / (TP + FP)
-    if(TP+FN):
+    if(TP+FN == 0):
         print("bad model")
         recall = -1
     else:
@@ -116,8 +116,10 @@ def f1_score(y, y_pred):
 
     precision = stats(y, y_pred)[4]
     recall = stats(y, y_pred)[5]
+    if(precision == -1 or recall == -1):
+        return 0
 
-    return 2*((precision*recall)/(precision+recall))
+    return (2*precision*recall)/(precision+recall)
 
 
 def calculate_gradient(y, tx, w, lambda_=0):
