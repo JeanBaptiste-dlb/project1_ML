@@ -82,40 +82,37 @@ def stats(y, y_pred):
         y_pred (np.ndarray): predictions
 
     Returns:
-        (int, int, int, int): #True Positives, #True Negatives, #False Positives, #False Negatives
+        (int, int, int,float, float): #True Positives,  #False Positives, #False Negatives, precision, recall
     """
     TP = len([i for i, j in zip(y_pred, y) if i == j == 1])
-    TN = len([i for i, j in zip(y_pred, y) if i == j != 1])
+    #TN = len([i for i, j in zip(y_pred, y) if i == j != 1])
     FP = len([i for i, j in zip(y_pred, y) if i != j and i == 1])
     FN = len([i for i, j in zip(y_pred, y) if i != j and i != 1])
 
     if(TP+FP == 0):
-        print("bad model")
         precision = -1
     else:
         precision = TP / (TP + FP)
     if(TP+FN == 0):
-        print("bad model")
         recall = -1
     else:
         recall = TP / (TP + FN)
 
-    return TP, TN, FP, FN, precision, recall
+    return TP, FP, FN, precision, recall
 
 
 def f1_score(y, y_pred):
     """compute the F1_score for y and y_pred. 
-
     Args:
         y (np.ndarray): labels  
         y_pred (np.ndarray): predictions
-
     Returns:
         float: the F1 score of the y_pred regarding y.
     """
 
-    precision = stats(y, y_pred)[4]
-    recall = stats(y, y_pred)[5]
+    precision = stats(y, y_pred)[3]
+    recall = stats(y, y_pred)[4]
+    # We give the same F1 score (0) as the grading platform if our model does not predict anything at all.
     if(precision == -1 or recall == -1):
         return 0
 
@@ -131,7 +128,6 @@ def calculate_gradient(y, tx, w, lambda_=0):
             Returns:
                     grad (numpy.ndarray): An array with shape (m,1), the gradient
     """
-
     inner = sigmoid(tx.dot(w))-y
     grad = tx.T.dot(inner) + 2*lambda_*w
     return grad
@@ -181,13 +177,10 @@ def Datas_completion_lacking_values_predicted(tx):
     txk2 = yy3(tx, l)
     for k in l:
         txk, yk = yy2(tx, k, l)
-        w, loss = get_w_loss(yk, build_poly(txk, 6), 2,
-                             gamma=1/1000, max_iters=500)
-
-        yreg = np.dot(build_poly(txk2, 6), w)
+        w, loss = get_w_loss(yk, txk, 3)
+        yreg = np.dot(txk2, w)
         for j in range(N):
             if tx[j, k] == -999:
-                print(yreg[j])
                 tx2[j, k] = yreg[j]
             else:
                 tx2[j, k] = tx[j, k]
@@ -315,7 +308,7 @@ def least_squares_GD(y, tx, initial_w, max_iters, gamma, log=False, store=False)
 
     """
     # Define parameters to store w and loss
-    if type(initial_w) == np.ndarray:
+    if isinstance(initial_w, np.ndarray):
         ws = [initial_w]
         w = initial_w
     else:
@@ -359,7 +352,7 @@ def stochastic_gradient_descent(y, tx, initial_w, max_iters, gamma, batch_size=1
     """
     iterator = batch_iter(
         y, tx, batch_size, num_batches=max_iters, shuffle=True)
-    if type(initial_w) == np.ndarray:
+    if isinstance(initial_w, np.ndarray):
         ws = [initial_w]
         w = initial_w
     else:
@@ -396,7 +389,6 @@ def least_squares(y, tx):
                     (numpy.ndarray, float): [0] w*: An array with shape (m,1) the optimal model for complexity m, [1] loss: MSE loss 
     """
     xtx = tx.T.dot(tx)
-    print(xtx)
     a = lin.inv(xtx)
     w = a.dot(tx.T).dot(y)
     loss = compute_MSE_loss(y, tx, w)
@@ -441,7 +433,7 @@ def learning_by_gradient_descent(y, tx, w, gamma, lambda_=0):
 # logistic regression without regularization
 
 
-def logistic_regression_gradient_descent(y, tx, initial_w=0, max_iters=1000, gamma=0.01, threshold=1e-15, log=False, store=False):
+def logistic_regression_gradient_descent(y, tx, initial_w, max_iters, gamma, threshold=1e-15, log=False, store=False):
     """Logistic regression using gradient descent
 
     Args:
@@ -463,7 +455,7 @@ def logistic_regression_gradient_descent(y, tx, initial_w=0, max_iters=1000, gam
     ws = []
     # build tx
     tx = np.c_[np.ones((y.shape[0], 1)), tx]
-    if type(initial_w) == np.ndarray:
+    if isinstance(initial_w, np.ndarray):
         ws = [initial_w]
         w = initial_w
     else:
@@ -493,7 +485,7 @@ def logistic_regression_gradient_descent(y, tx, initial_w=0, max_iters=1000, gam
 
 # Logistic regression with regularization
 
-def reg_logistic_regression(y, tx, initial_w=0, max_iters=1000, gamma=0.01, threshold=1e-8, log=False, store=False, lambda_=0.1):
+def reg_logistic_regression(y, tx, initial_w, max_iters, gamma, lambda_, threshold=1e-15, log=False, store=False):
     """Logistic regression using gradient descent
 
     Args:
@@ -516,7 +508,7 @@ def reg_logistic_regression(y, tx, initial_w=0, max_iters=1000, gamma=0.01, thre
     ws = []
     # build tx
     tx = np.c_[np.ones((y.shape[0], 1)), tx]
-    if type(initial_w) == np.ndarray:
+    if isinstance(initial_w, np.ndarray):
         ws = [initial_w]
         w = initial_w
     else:
