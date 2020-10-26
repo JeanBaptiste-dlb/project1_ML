@@ -129,10 +129,11 @@ def calculate_gradient(y, tx, w, lambda_=0):
                     grad (numpy.ndarray): An array with shape (m,1), the gradient
     """
     inner = sigmoid(tx.dot(w))-y
+
     grad = tx.T.dot(inner) + 2*lambda_*w
     return grad
 
-# ! TODO refactor names and polynomial regression
+# ! TODO refactor names and variables and polynomial regression
 
 
 def yy2(tx, k, ld):
@@ -240,7 +241,6 @@ def cross_validation_split(y, x, k_indices, k):
         k (int): should be in [0,..., number_of_folds]. uses the k_th subset as the test set.
     Returns:
         (numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray): returns x_train, y_train, x_test, y_test with respective shapes (n,m-(n/number_of_folds)), (n-(n/number_of_folds),1), (n,n/number_of_folds), (n/number_of_folds, 1)
-
     """
     # get k'th subgroup in test, others in train:
     test = k_indices[k]
@@ -253,7 +253,6 @@ def cross_validation_split(y, x, k_indices, k):
 
 def build_poly(x, degree):
     """polynomial basis functions for input data x, for j=0 up to j=degree.
-
     Args:
         x (numpy.ndarray): An array of shape (n,m) to expend.
         degree (int): should be unsigned
@@ -359,6 +358,7 @@ def stochastic_gradient_descent(y, tx, initial_w, max_iters, gamma, batch_size=1
         w = np.array([initial_w]*tx.shape[1])
         ws = [w]
     losses = []
+    loss = 0
     for y, x in iterator:
         # compute gradient and loss
         grad = compute_stoch_gradient(y, x, w)
